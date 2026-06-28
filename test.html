@@ -6,23 +6,6 @@
   <meta name="description" content="Test page for the privacy-first analytics tracker. Fires auto pageview + 3 custom events.">
   <title>Analytics Tracker — Test Harness</title>
 
-  <!--
-    Load the tracker with async attribute.
-    
-    WHY async (from research):
-    - Analytics scripts are independent — don't need DOM to be parsed
-    - async downloads in parallel and executes as soon as downloaded
-    - This is the pattern used by GA4, Plausible, and Fathom
-    - Zero render-blocking impact on LCP/CLS/INP
-    
-    The ?id=TEST_PROJECT_123 query parameter is parsed by the tracker
-    to extract the project ID (following the self-configuring pattern
-    shared by Plausible's data-domain, Umami's data-website-id, and
-    Fathom's data-site attributes).
-    
-    data-endpoint points to a test endpoint. In production, this would
-    be the real analytics server. For testing, we use a mock URL.
-  -->
   <script async src="./tracker.min.js?id=TEST_PROJECT_123" data-endpoint="/api/collect"></script>
 
   <style>
@@ -314,7 +297,6 @@
     <h1>🔒 Analytics Tracker Test</h1>
     <p class="subtitle">Privacy-first • Cookie-free • < 1.5 KB gzipped</p>
 
-    <!-- Session Info Card -->
     <div class="card" id="session-card">
       <h2>
         <span class="dot live"></span>
@@ -335,7 +317,6 @@
       </div>
     </div>
 
-    <!-- Stats Card -->
     <div class="card">
       <h2>📊 Event Statistics</h2>
       <div class="stats">
@@ -354,7 +335,6 @@
       </div>
     </div>
 
-    <!-- Fire Events Card -->
     <div class="card">
       <h2>🚀 Fire Test Events</h2>
       <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
@@ -382,7 +362,6 @@
       </div>
     </div>
 
-    <!-- Event Log Card -->
     <div class="card">
       <h2>📝 Event Log <span class="badge" id="log-count">0 entries</span></h2>
       <div id="event-log">
@@ -398,14 +377,9 @@
   </footer>
 
   <script>
-    // ─── Test Harness Logic ───────────────────────────────────────────
     var eventLog = [];
     var pageviewCount = 0;
     var customCount = 0;
-
-    // Intercept network requests to display them in the log
-    // (Since sendBeacon is fire-and-forget, we can't easily intercept it.
-    // Instead, we log events when they're fired.)
 
     function logEvent(type, name, props) {
       var now = new Date();
@@ -442,7 +416,6 @@
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    // Display session info
     function displaySessionInfo() {
       try {
         var sid = sessionStorage.getItem('_a_sid');
@@ -459,12 +432,6 @@
       }
     }
 
-    // ─── Event Firing Functions ───────────────────────────────────────
-
-    /**
-     * Fire a custom analytics event.
-     * This calls window.analytics.track() from the loaded tracker.
-     */
     function fireEvent(name, props) {
       if (window.analytics && typeof window.analytics.track === 'function') {
         window.analytics.track(name, props);
@@ -476,9 +443,6 @@
       }
     }
 
-    /**
-     * Fire a manual pageview event.
-     */
     function firePageview() {
       if (window.analytics && typeof window.analytics.page === 'function') {
         window.analytics.page();
@@ -489,14 +453,7 @@
       }
     }
 
-    /**
-     * Force flush the event queue.
-     * Note: The tracker doesn't expose flush() publicly, so we trigger
-     * it indirectly by dispatching a visibilitychange event.
-     * In a real app, you'd add a flush() method to the API if needed.
-     */
     function forceFlush() {
-      // Simulate tab hide to trigger flush
       Object.defineProperty(document, 'visibilityState', {
         value: 'hidden',
         writable: true,
@@ -504,7 +461,6 @@
       });
       document.dispatchEvent(new Event('visibilitychange'));
 
-      // Restore
       setTimeout(function () {
         Object.defineProperty(document, 'visibilityState', {
           value: 'visible',
@@ -517,13 +473,9 @@
       console.log('[Test] Forced flush via visibilitychange');
     }
 
-    // ─── Initialize ───────────────────────────────────────────────────
-
-    // Wait a moment for the tracker to load (it's async), then display info
     setTimeout(function () {
       displaySessionInfo();
 
-      // Log the auto-pageview that the tracker fires on load
       if (window.analytics) {
         logEvent('pageview', 'pageview (auto)', null);
         console.log('[Test] Tracker loaded successfully');

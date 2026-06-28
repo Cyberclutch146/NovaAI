@@ -1,21 +1,3 @@
-/**
- * Build script for the analytics tracker.
- *
- * Uses esbuild to produce tracker.min.js as a minified IIFE.
- *
- * WHY esbuild (from research):
- * - Near-instantaneous builds (Go-based, ~100x faster than Terser)
- * - For a ~6 KB vanilla JS IIFE, the size difference vs Terser is < 50 bytes
- * - Native --format=iife support, zero config needed
- * - Single CLI command, no config file required
- *
- * Usage:
- *   node build.js
- *
- * Or equivalently via npx:
- *   npx esbuild tracker.js --bundle --minify --format=iife --outfile=tracker.min.js
- */
-
 const { build } = require('esbuild');
 const fs = require('fs');
 const zlib = require('zlib');
@@ -30,13 +12,10 @@ async function run() {
     bundle: true,
     minify: true,
     format: 'iife',
-    target: ['es2017'],  // Target ES2017 for broad compatibility
-    // No sourcemap in production to minimize served bytes.
-    // Developers can build with --sourcemap for debugging.
+    target: ['es2017'],  
     legalComments: 'none',
   });
 
-  // Report sizes
   const raw = fs.readFileSync(outfile);
   const gzipped = zlib.gzipSync(raw);
 
