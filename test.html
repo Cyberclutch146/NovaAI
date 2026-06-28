@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Test page for the privacy-first analytics tracker. Fires auto pageview + 3 custom events.">
+  <title>Analytics Tracker — Test Harness</title>
+
+  <!--
+    Load the tracker with async attribute.
+    
+    WHY async (from research):
+    - Analytics scripts are independent — don't need DOM to be parsed
+    - async downloads in parallel and executes as soon as downloaded
+    - This is the pattern used by GA4, Plausible, and Fathom
+    - Zero render-blocking impact on LCP/CLS/INP
+    
+    The ?id=TEST_PROJECT_123 query parameter is parsed by the tracker
+    to extract the project ID (following the self-configuring pattern
+    shared by Plausible's data-domain, Umami's data-website-id, and
+    Fathom's data-site attributes).
+    
+    data-endpoint points to a test endpoint. In production, this would
+    be the real analytics server. For testing, we use a mock URL.
+  -->
+  <script async src="./tracker.min.js?id=TEST_PROJECT_123" data-endpoint="/api/collect"></script>
+
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0a0a1a;
+      --bg-card: #12122b;
+      --bg-card-hover: #1a1a3e;
+      --text-primary: #e8e8f0;
+      --text-secondary: #8888aa;
+      --accent-1: #6366f1;
+      --accent-2: #8b5cf6;
+      --accent-3: #a78bfa;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --border: rgba(99, 102, 241, 0.15);
+      --glow: rgba(99, 102, 241, 0.1);
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      line-height: 1.6;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-1), var(--accent-3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: 0 8px 32px var(--glow);
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent-3);
+    }
+
+    .badge.success {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.25rem;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0.3rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+      color: white;
+      box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--accent-3);
+      border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--accent-1);
+    }
+
+    #event-log {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.8;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      max-height: 320px;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+
+    .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: var(--text-secondary);
+    }
+
+    .log-event {
+      color: var(--accent-3);
+      font-weight: 500;
+    }
+
+    .log-detail {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .stat {
+      text-align: center;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--accent-3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.25rem;
+    }
+
+    .session-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent-3);
+      background: rgba(99, 102, 241, 0.1);
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      display: inline-block;
+      margin-top: 0.5rem;
+      word-break: break-all;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      font-size: 0.875rem;
+    }
+
+    .info-label {
+      color: var(--text-secondary);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 0.4rem;
+      animation: pulse 2s infinite;
+    }
+
+    .dot.live {
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🔒 Analytics Tracker Test</h1>
+    <p class="subtitle">Privacy-first • Cookie-free • < 1.5 KB gzipped</p>
+
+    <!-- Session Info Card -->
+    <div class="card" id="session-card">
+      <h2>
+        <span class="dot live"></span>
+        Session Info
+        <span class="badge success">Active</span>
+      </h2>
+      <div class="info-row">
+        <span class="info-label">Session ID</span>
+        <span class="session-id" id="display-session-id">Loading...</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Storage</span>
+        <span id="display-storage">Checking...</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Project ID</span>
+        <span>TEST_PROJECT_123</span>
+      </div>
+    </div>
+
+    <!-- Stats Card -->
+    <div class="card">
+      <h2>📊 Event Statistics</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="total-events">0</div>
+          <div class="stat-label">Total Events</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="pageview-count">0</div>
+          <div class="stat-label">Pageviews</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="custom-count">0</div>
+          <div class="stat-label">Custom Events</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fire Events Card -->
+    <div class="card">
+      <h2>🚀 Fire Test Events</h2>
+      <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
+        Click the buttons below to fire custom analytics events. Check the
+        Network tab in DevTools to see batched sendBeacon/fetch requests.
+      </p>
+
+      <button class="btn btn-primary" id="btn-signup" onclick="fireEvent('signup', { plan: 'pro', source: 'landing' })">
+        ✨ Track Signup
+      </button>
+      <button class="btn btn-primary" id="btn-purchase" onclick="fireEvent('purchase', { amount: 49.99, currency: 'USD', item: 'annual-plan' })">
+        💳 Track Purchase
+      </button>
+      <button class="btn btn-primary" id="btn-feature" onclick="fireEvent('feature_used', { feature: 'dark-mode', version: '2.1' })">
+        ⚡ Track Feature Use
+      </button>
+
+      <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <button class="btn btn-outline" id="btn-page" onclick="firePageview()">
+          📄 Manual Pageview
+        </button>
+        <button class="btn btn-outline" id="btn-flush" onclick="forceFlush()">
+          🔄 Force Flush
+        </button>
+      </div>
+    </div>
+
+    <!-- Event Log Card -->
+    <div class="card">
+      <h2>📝 Event Log <span class="badge" id="log-count">0 entries</span></h2>
+      <div id="event-log">
+        <div class="log-entry" style="color: var(--text-secondary); font-style: italic;">
+          Waiting for events...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Privacy-First Analytics Tracker • No cookies • No fingerprinting • sessionStorage only
+  </footer>
+
+  <script>
+    // ─── Test Harness Logic ───────────────────────────────────────────
+    var eventLog = [];
+    var pageviewCount = 0;
+    var customCount = 0;
+
+    // Intercept network requests to display them in the log
+    // (Since sendBeacon is fire-and-forget, we can't easily intercept it.
+    // Instead, we log events when they're fired.)
+
+    function logEvent(type, name, props) {
+      var now = new Date();
+      var time = now.toLocaleTimeString('en-US', { hour12: false });
+
+      eventLog.push({ time: time, type: type, name: name, props: props });
+
+      if (type === 'pageview') {
+        pageviewCount++;
+      } else {
+        customCount++;
+      }
+
+      updateUI();
+    }
+
+    function updateUI() {
+      var total = pageviewCount + customCount;
+      document.getElementById('total-events').textContent = total;
+      document.getElementById('pageview-count').textContent = pageviewCount;
+      document.getElementById('custom-count').textContent = customCount;
+      document.getElementById('log-count').textContent = eventLog.length + ' entries';
+
+      var logEl = document.getElementById('event-log');
+      logEl.innerHTML = eventLog.map(function (entry) {
+        var propsStr = entry.props ? ' ' + JSON.stringify(entry.props) : '';
+        return '<div class="log-entry">' +
+          '<span class="log-time">[' + entry.time + ']</span> ' +
+          '<span class="log-event">' + entry.name + '</span>' +
+          '<span class="log-detail">' + propsStr + '</span>' +
+          '</div>';
+      }).join('');
+
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Display session info
+    function displaySessionInfo() {
+      try {
+        var sid = sessionStorage.getItem('_a_sid');
+        if (sid) {
+          document.getElementById('display-session-id').textContent = sid;
+          document.getElementById('display-storage').textContent = 'sessionStorage ✅';
+        } else {
+          document.getElementById('display-session-id').textContent = 'Not yet created';
+          document.getElementById('display-storage').textContent = 'Pending...';
+        }
+      } catch (e) {
+        document.getElementById('display-session-id').textContent = 'Unavailable';
+        document.getElementById('display-storage').textContent = 'In-memory fallback ⚠️';
+      }
+    }
+
+    // ─── Event Firing Functions ───────────────────────────────────────
+
+    /**
+     * Fire a custom analytics event.
+     * This calls window.analytics.track() from the loaded tracker.
+     */
+    function fireEvent(name, props) {
+      if (window.analytics && typeof window.analytics.track === 'function') {
+        window.analytics.track(name, props);
+        logEvent('custom', name, props);
+        console.log('[Test] Tracked custom event:', name, props);
+      } else {
+        console.error('[Test] analytics.track() not available — tracker may not be loaded yet');
+        logEvent('error', 'tracker_not_loaded', null);
+      }
+    }
+
+    /**
+     * Fire a manual pageview event.
+     */
+    function firePageview() {
+      if (window.analytics && typeof window.analytics.page === 'function') {
+        window.analytics.page();
+        logEvent('pageview', 'pageview (manual)', null);
+        console.log('[Test] Tracked manual pageview');
+      } else {
+        console.error('[Test] analytics.page() not available');
+      }
+    }
+
+    /**
+     * Force flush the event queue.
+     * Note: The tracker doesn't expose flush() publicly, so we trigger
+     * it indirectly by dispatching a visibilitychange event.
+     * In a real app, you'd add a flush() method to the API if needed.
+     */
+    function forceFlush() {
+      // Simulate tab hide to trigger flush
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+        configurable: true
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      // Restore
+      setTimeout(function () {
+        Object.defineProperty(document, 'visibilityState', {
+          value: 'visible',
+          writable: true,
+          configurable: true
+        });
+      }, 100);
+
+      logEvent('system', 'flush (forced)', null);
+      console.log('[Test] Forced flush via visibilitychange');
+    }
+
+    // ─── Initialize ───────────────────────────────────────────────────
+
+    // Wait a moment for the tracker to load (it's async), then display info
+    setTimeout(function () {
+      displaySessionInfo();
+
+      // Log the auto-pageview that the tracker fires on load
+      if (window.analytics) {
+        logEvent('pageview', 'pageview (auto)', null);
+        console.log('[Test] Tracker loaded successfully');
+        console.log('[Test] Auto pageview was fired by tracker');
+        console.log('[Test] API available: analytics.track(), analytics.page()');
+      } else {
+        console.warn('[Test] Tracker not loaded — are you serving via a web server?');
+      }
+    }, 500);
+  </script>
+
+</body>
+</html>
